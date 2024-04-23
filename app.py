@@ -148,8 +148,8 @@ def update_user_profile():
         return jsonify({"message": "Missing JSON in request"}), 400
 
     email = request.json.get('email', None)
-    new_first_name = request.json.get('first_name', None)
-    new_last_name = request.json.get('last_name', None)
+    new_first_name = request.json.get('firstName', None)
+    new_last_name = request.json.get('lastName', None)
     new_password = request.json.get('password', None)  # Remember to hash passwords in production
     new_region = request.json.get('region', None)
     new_user_state = request.json.get('user_state', None)
@@ -191,6 +191,196 @@ def update_user_profile():
         return jsonify({"message": "User profile updated successfully"}), 200
     else:
         return jsonify({"message": "No fields to update"}), 400
+    
+#api to get the vehicle model for dropdown when adding posting 
+@app.route('/vehicle_models', methods=['GET'])
+def get_vehicle_models():
+    
+    vehicle_models = query_db1("SELECT model FROM Vehicles")
+
+   
+    models_list = [model[0] for model in vehicle_models]
+
+    return jsonify(models_list), 200
+
+#add postings 
+@app.route('/add_vehicle_posting', methods=['POST'])
+def add_vehicle_posting():
+    if not request.is_json:
+        return jsonify({"message": "Missing JSON in request"}), 400
+    
+    # Get data from the request JSON
+    email = request.json.get('email', None) 
+    url = request.json.get('url', None)
+    price = request.json.get('price', None)
+    condition = request.json.get('condition', None)
+    odometer = request.json.get('odometer', None)
+    title_status = request.json.get('title_status', None)
+    VIN = request.json.get('VIN', None)
+    paint_color = request.json.get('paint_color', None)
+    image_url = request.json.get('image_url', None)
+    description = request.json.get('description', None)
+    posting_date = request.json.get('posting_date', None)
+    model = request.json.get('model', None)  
+
+
+    if not all([url, price, condition, odometer, title_status, VIN, paint_color, image_url, description, posting_date, model]):
+        return jsonify({"message": "Missing parameters"}), 400
+    
+
+    vehicle_exists = query_db1("SELECT * FROM Vehicles WHERE model = ?", (model,), one=True)
+    if not vehicle_exists:
+        return jsonify({"message": "Vehicle model not found"}), 404
+
+
+    query_db("INSERT INTO Posting (url, price, condition, odometer, title_status, VIN, paint_color, image_url, description, posting_date, email, model) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+             (url, price, condition, odometer, title_status, VIN, paint_color, image_url, description, posting_date, email, model))
+  
+    return jsonify({"message": "Vehicle posting added successfully"}), 201
+
+#get all the user postings
+@app.route('/user_postings', methods=['POST'])
+def get_user_postings():
+    if not request.is_json:
+        return jsonify({"message": "Missing JSON in request"}), 400
+
+    current_user_email = request.json.get('email', None)
+
+    if not current_user_email:
+        return jsonify({"message": "Missing email parameter"}), 400
+
+    user_postings = query_db1("""
+        SELECT 
+            p.id,
+            p.url,
+            p.price,
+            p.condition,
+            p.odometer,
+            p.title_status,
+            p.VIN,
+            p.paint_color,
+            p.image_url,
+            p.description,
+            p.posting_date,
+            u.email AS user_email,
+            u.first_name,
+            u.last_name,
+            v.manufacturer,
+            v.model AS vehicle_model,
+            v.year,
+            v.cylinders,
+            v.fuel,
+            v.transmission,
+            v.drive,
+            v.size,
+            v.type
+        FROM Posting p
+        INNER JOIN Users u ON p.email = u.email
+        INNER JOIN Vehicles v ON p.model = v.model
+        WHERE p.email = ?
+    """, (current_user_email,))
+
+    postings = [dict(zip(['id', 'url', 'price', 'condition', 'odometer', 
+                          'title_status', 'VIN', 'paint_color', 'image_url', 
+                          'description', 'posting_date', 'user_email', 
+                          'first_name', 'last_name', 'manufacturer', 
+                          'vehicle_model', 'year', 'cylinders', 'fuel', 
+                          'transmission', 'drive', 'size', 'type'], posting))
+                for posting in user_postings]
+
+    return jsonify(postings=postings), 200
+
+@app.route('/update_vehicle_posting', methods=['PUT'])
+
+def update_vehicle_posting():
+    if not request.is_json:
+        return jsonify({"message": "Missing JSON in request"}), 400
+    
+    posting_id=request.json.get('id')
+    url = request.json.get('url')
+    price = request.json.get('price')
+    condition = request.json.get('condition')
+    odometer = request.json.get('odometer')
+    title_status = request.json.get('title_status')
+    VIN = request.json.get('VIN')
+    paint_color = request.json.get('paint_color')
+    image_url = request.json.get('image_url')
+    description = request.json.get('description')
+    posting_date = request.json.get('posting_date')
+    model = request.json.get('model')  
+
+    posting = query_db1("SELECT * FROM Posting WHERE id = ?", (posting_id,), one=True)
+    if not posting:
+        return jsonify({"message": "Posting not found or you do not have permission to update this posting"}), 404
+    
+    vehicle_exists = query_db1("SELECT * FROM Vehicles WHERE model = ?", (model,), one=True)
+    if not vehicle_exists:
+        return jsonify({"message": "Vehicle model not found"}), 404
+
+
+    
+    update_data = []
+    query_components = []
+
+    if url is not None:
+        query_components.append("url = ?")
+        update_data.append(url)
+    if price is not None:
+        query_components.append("price = ?")
+        update_data.append(price)
+    if condition is not None:
+        query_components.append("condition = ?")
+        update_data.append(condition)
+    if odometer is not None:
+        query_components.append("odometer = ?")
+        update_data.append(odometer)
+    if title_status is not None:
+        query_components.append("title_status = ?")
+        update_data.append(title_status)
+    if VIN is not None:
+        query_components.append("VIN = ?")
+        update_data.append(VIN)
+    if paint_color is not None:
+        query_components.append("paint_color = ?")
+        update_data.append(paint_color)
+    if image_url is not None:
+        query_components.append("image_url = ?")
+        update_data.append(image_url)
+    if description is not None:
+        query_components.append("description = ?")
+        update_data.append(description)
+    if posting_date is not None:
+        query_components.append("posting_date = ?")
+        update_data.append(posting_date)
+    if model is not None:
+        query_components.append("model = ?")
+        update_data.append(model)
+    
+
+    if query_components:
+        update_query = "UPDATE Posting SET " + ", ".join(query_components) + " WHERE id = ?"
+        update_data.append(posting_id)
+        query_db(update_query, update_data)
+        return jsonify({"message": "Vehicle posting updated successfully"}), 200
+    else:
+        return jsonify({"message": "No update data provided"}), 400
+    
+#deleting the posting 
+@app.route('/delete_vehicle_posting', methods=['POST'])
+
+def delete_vehicle_posting():
+    posting_id=request.json.get('id',None)
+
+    posting = query_db1("SELECT * FROM Posting WHERE id = ?", (posting_id,), one=True)
+    if not posting:
+        return jsonify({"message": "Posting not found or you do not have permission to delete this posting"}), 404
+
+
+    query_db("DELETE FROM Posting WHERE id = ?", (posting_id,))
+  
+    return jsonify({"message": "Vehicle posting deleted successfully"}), 200
+
+
 
 @app.route('/')
 
