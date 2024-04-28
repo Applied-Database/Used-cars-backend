@@ -418,6 +418,22 @@ def count_by_manufacturer():
     results = query_db1(query)
     return jsonify(results)
 
+#dataviz3
+@app.route('/api/vehicle-conditions', methods=['GET'])
+def vehicle_conditions():
+    try:
+        result = query_db1('''
+            SELECT UPPER(condition) AS condition, COUNT(*) AS count
+            FROM Posting
+            WHERE condition IS NOT NULL
+            GROUP BY UPPER(condition)
+        ''')
+        rows = result
+        data = {'labels': [row[0] for row in rows], 'counts': [row[1] for row in rows]}  # Accessing by indices
+        return jsonify(data)
+    except Exception as e:
+        print(e)  # Log the exception to the console or your preferred logger
+        return jsonify({'error': str(e)}), 500
 @app.route('/')
 
 def hello_world():
