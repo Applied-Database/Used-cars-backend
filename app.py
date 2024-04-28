@@ -35,6 +35,15 @@ def query_db1(query, args=(), one=False):
     conn.close()   
     return result
 
+def query_db1(query):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute(query, args)
+    result = cursor.fetchall()
+    cursor.close()  
+    conn.close()   
+    return result
+
 # Login API
 @app.route('/login', methods=['POST'])
 def login():
@@ -380,7 +389,34 @@ def delete_vehicle_posting():
   
     return jsonify({"message": "Vehicle posting deleted successfully"}), 200
 
+#data viz1
+@app.route('/api/average-price', methods=['GET'])
+def average_price():
+    try:
+        result = query_db1("""
+            SELECT UPPER(user_state) AS state, AVG(price) AS average_price
+            FROM Posting
+            JOIN Users ON Posting.email = Users.email
+            WHERE price IS NOT NULL AND price NOT IN (0, 1)
+            GROUP BY user_state
+        """)
+        data = [{"state": state, "average_price": average_price} for state, average_price in result]
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
+#dataviz2
+@app.route('/api/vehicles/count-by-manufacturer', methods=['GET'])
+def count_by_manufacturer():
+    query = """
+        SELECT UPPER(manufacturer) AS manufacturer, COUNT(*) AS vehicle_count
+        FROM Vehicles
+        WHERE manufacturer IS NOT NULL
+        GROUP BY UPPER(manufacturer)
+        ORDER BY vehicle_count DESC
+    """
+    results = query_db1(query)
+    return jsonify(results)
 
 @app.route('/')
 
