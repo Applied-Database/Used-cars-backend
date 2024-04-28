@@ -434,6 +434,25 @@ def vehicle_conditions():
     except Exception as e:
         print(e)  # Log the exception to the console or your preferred logger
         return jsonify({'error': str(e)}), 500
+
+
+#dataviz4
+@app.route('/api/vehicle-types', methods=['GET'])
+def vehicle_types():
+    try:
+        result = query_db1('''
+            SELECT UPPER(type) AS type, COUNT(*) AS count
+            FROM Vehicles
+            WHERE type IS NOT NULL
+            GROUP BY UPPER(type)
+            ORDER BY COUNT(*) DESC
+        ''')
+        rows = result
+        data = {'labels': [row[0] for row in rows], 'counts': [row[1] for row in rows]}
+        return jsonify(data)
+    except Exception as e:
+        print(e)  # Log the exception to the console or your preferred logger
+        return jsonify({'error': str(e)}), 500
 @app.route('/')
 
 def hello_world():
